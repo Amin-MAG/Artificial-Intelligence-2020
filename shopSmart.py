@@ -30,7 +30,7 @@ def shopSmart(orderList, fruitShops):
         fruitShops: List of FruitShops
     """
     "*** YOUR CODE HERE ***"
-    return None
+    return min([(shop, sum(list(map(lambda item: item[1] * shop.getCostPerPound(item[0]), orderList)))) for shop in fruitShops], key = lambda item: item[1])[0]
 
 
 if __name__ == '__main__':

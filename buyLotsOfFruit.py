@@ -36,7 +36,11 @@ def buyLotsOfFruit(orderList):
     """
     totalCost = 0.0
     "*** YOUR CODE HERE ***"
-    return totalCost
+    # check
+    for item in orderList:
+        if item[0] not in fruitPrices.keys():
+            return None
+    return sum(list(map(lambda item: fruitPrices[item[0]] * item[1], orderList)))
 
 
 # Main Method
