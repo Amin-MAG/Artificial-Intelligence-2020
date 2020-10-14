@@ -18,6 +18,7 @@ Pacman agents (in searchAgents.py).
 """
 
 import util
+from game import Directions
 
 class SearchProblem:
     """
@@ -72,6 +73,19 @@ def tinyMazeSearch(problem):
     w = Directions.WEST
     return  [s, s, w, s, w, w, s, w]
 
+def dfs_helper(problem, state, visited, route):
+    visited.append(state[0])
+    route.push(state[1])
+    # Check the goal
+    if problem.isGoalState(state[0]):
+        return True
+    for child in problem.getSuccessors(state[0]):
+        if child[0] not in visited:
+            if dfs_helper(problem, child, visited, route):
+                return True
+    route.pop()
+    return False
+
 def depthFirstSearch(problem):
     """
     Search the deepest nodes in the search tree first.
@@ -87,12 +101,41 @@ def depthFirstSearch(problem):
     print("Start's successors:", problem.getSuccessors(problem.getStartState()))
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # The Route
+    route = util.Stack()
+    # Visited states
+    visited = [problem.getStartState()]
+    # Main
+    for state in problem.getSuccessors((problem.getStartState())):
+        if state[0] not in visited:
+            if dfs_helper(problem, state, visited, route):
+                return route.list
 
 def breadthFirstSearch(problem):
     """Search the shallowest nodes in the search tree first."""
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # The Route
+    routes = util.Queue()
+    routes.push([])
+    # BFS Queue
+    queue = util.Queue()
+    # Visited states
+    visited = []
+    # Main
+    queue.push((problem.getStartState(), None, None))
+    while not queue.isEmpty():
+        state = queue.pop()
+        route = routes.pop()
+        if state[1] == None:
+            visited.append(state[0])
+        # Check if it is a go
+        if problem.isGoalState(state[0]):
+            return route
+        for child in problem.getSuccessors(state[0]):
+            if child[0] not in visited:
+                queue.push(child)
+                visited.append(child[0])                
+                routes.push((route + [child[1]]))
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
