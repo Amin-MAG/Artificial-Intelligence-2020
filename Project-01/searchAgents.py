@@ -471,9 +471,61 @@ def foodHeuristic(state, problem):
     Subsequent calls to this heuristic can access
     problem.heuristicInfo['wallCount']
     """
+    import math
     position, foodGrid = state
     "*** YOUR CODE HERE ***"
-    return 0
+    # print(type(foodGrid))
+
+    if foodGrid.count() == 0:
+        return 0
+
+    minimumH = math.inf
+    food_table =  foodGrid.asList()
+    for f in food_table:
+        x, y = position
+        topLine = max(y, f[1])
+        bottomLine = min(y, f[1])
+        centerVLine = int((topLine + bottomLine)/2)
+        rightLine = max(x, f[0])
+        leftLine = min(x, f[0])
+        centerHLine = int((rightLine + leftLine)/2)
+        # Calculate Heuristic
+        direct_distance = ((x - f[0]) ** 2 + (y - f[1]) ** 2) ** 0.5
+        # Walls
+        horizentalsWall = [0, 0, 0]
+        for i in range(leftLine, rightLine):
+            horizentalsWall[0] += 1 if problem.walls[i][topLine] else 0
+            horizentalsWall[1] += 1 if problem.walls[i][bottomLine] else 0
+            horizentalsWall[2] += 1 if problem.walls[i][centerVLine] else 0
+        verticalsWall = [0, 0, 0]
+        for i in range(bottomLine, topLine):
+            verticalsWall[0] += 1 if problem.walls[rightLine][i] else 0
+            verticalsWall[1] += 1 if problem.walls[leftLine][i] else 0
+            verticalsWall[2] += 1 if problem.walls[centerHLine][i] else 0
+        # verticalsWall = [sum([1 if problem.[width][pos] else 0 for pos in range(bottomLine, topLine)]) for width in [bottomLine, topLine, centerHLine]]
+        # Foods
+        horizentalsFood = [0, 0, 0]
+        for i in range(leftLine, rightLine):
+            horizentalsFood[0] += 1 if (i, topLine) in food_table else 0
+            horizentalsFood[1] += 1 if (i, bottomLine) in food_table else 0
+            horizentalsFood[2] += 1 if (i, centerVLine) in food_table else 0
+        verticalsFood = [0, 0, 0]
+        for i in range(bottomLine, topLine):
+            verticalsFood[0] += 1 if (i, topLine) in food_table else 0
+            verticalsFood[1] += 1 if (i, bottomLine) in food_table else 0
+            verticalsFood[2] += 1 if (i, centerVLine) in food_table else 0
+        # horizentalsFood = [sum([1 if problem.walls[pos][height] else 0 for pos in range(leftLine, rightLine)]) for height in [topLine, bottomLine, centerVLine]]
+        # verticalsFood = [sum([1 if problem.walls[width][pos] else 0 for pos in range(bottomLine, topLine)]) for width in [bottomLine, topLine, centerHLine]]
+        # Summary
+        if max(horizentalsFood) + max(verticalsFood) == 0:
+            howHardIsPath = (min(horizentalsWall) + min(verticalsWall)) / 0.1 
+        else:
+            howHardIsPath = (min(horizentalsWall) + min(verticalsWall)) / (max(horizentalsFood) + max(verticalsFood)) # admissible
+        h = direct_distance + (math.factorial(foodGrid.count())) * howHardIsPath # if many of foods were available then direct_food is not much importent.
+        # Check miminum
+        if minimumH > h:
+            minimumH = h 
+    return minimumH
 
 class ClosestDotSearchAgent(SearchAgent):
     "Search for all food using a sequence of searches"
