@@ -324,6 +324,8 @@ class CornersProblem(search.SearchProblem):
             state, 'action' is the action required to get there, and 'stepCost'
             is the incremental cost of expanding to that successor
         """
+        if state['state'] in self.corners:
+            self.corners = tuple(set(self.corners) - set(state['state']))
 
         successors = []
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
@@ -376,11 +378,46 @@ def cornersHeuristic(state, problem):
     admissible (as well as consistent).
     """
     corners = problem.corners # These are the corner coordinates
-    walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
-
+    import math
     "*** YOUR CODE HERE ***"
-    return 0 # Default to trivial solution
 
+    if len(corners) == 0:
+        return 0
+
+    minimumH = math.inf
+    for f in corners:
+        x, y = state['state']
+        topLine = max(y, f[1])
+        bottomLine = min(y, f[1])
+        centerVLine = int((topLine + bottomLine)/2)
+        centerV1Line = int(((topLine + bottomLine)/4))
+        centerV3Line = int(0.75 * (topLine + bottomLine))
+        rightLine = max(x, f[0])
+        leftLine = min(x, f[0])
+        centerHLine = int((rightLine + leftLine)/2)
+        centerH1Line = int((rightLine + leftLine)/4)
+        centerH3Line = int(0.75 *(rightLine + leftLine))
+        # Calculate Heuristic
+        direct_distance = ((x - f[0]) ** 2 + (y - f[1]) ** 2) ** 0.5
+        # Walls
+        horizentalsWall = [0, 0, 0]
+        for i in range(leftLine, rightLine):
+            horizentalsWall[0] += 1 if problem.walls[i][topLine] else 0
+            horizentalsWall[1] += 1 if problem.walls[i][bottomLine] else 0
+            horizentalsWall[2] += 1 if problem.walls[i][centerVLine] else 0
+        verticalsWall = [0, 0, 0]
+        for i in range(bottomLine, topLine):
+            verticalsWall[0] += 1 if problem.walls[rightLine][i] else 0
+            verticalsWall[1] += 1 if problem.walls[leftLine][i] else 0
+            verticalsWall[2] += 1 if problem.walls[centerHLine][i] else 0
+        # Summary
+        howHardIsPath = (min(horizentalsWall) + min(verticalsWall))  # admissible
+        h = direct_distance + (math.factorial(len(corners))) * howHardIsPath # if many of foods were available then direct_food is not much importent.
+        # Check miminum
+        if minimumH > h:
+            minimumH = h 
+    return minimumH
+    
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
     def __init__(self):
