@@ -592,9 +592,29 @@ class ClosestDotSearchAgent(SearchAgent):
         walls = gameState.getWalls()
         problem = AnyFoodSearchProblem(gameState)
 
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        # The Route
+        routes = util.Queue()
+        routes.push([])
+        # BFS Queue
+        queue = util.Queue()
+        # Visited states
+        visited = []
+        # Main
+        queue.push((startPosition, None, None))
+        while not queue.isEmpty():
+            state = queue.pop()
+            route = routes.pop()
+            if state[1] == None:
+                visited.append(state[0])
+            # Check if it is a go
+            if food[state[0][0]][state[0][1]]:
+                return route
+            for child in problem.getSuccessors(state[0]):
+                if child[0] not in visited:
+                    queue.push(child)
+                    visited.append(child[0])                
+                    routes.push((route + [child[1]]))
+                        
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
     A search problem for finding a path to any food.
@@ -629,7 +649,7 @@ class AnyFoodSearchProblem(PositionSearchProblem):
         x,y = state
 
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return []
 
 def mazeDistance(point1, point2, gameState):
     """
