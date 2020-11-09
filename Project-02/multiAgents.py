@@ -15,6 +15,7 @@
 from util import manhattanDistance
 from game import Directions
 import random, util
+import math
 
 from game import Agent
 
@@ -73,8 +74,39 @@ class ReflexAgent(Agent):
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
-        "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        # print('new pos:', newPos)
+        # print('new food:', newFood)
+        # print('new ghost state:', newGhostStates)
+        # for ghost in newGhostStates:
+        #     print(ghost.getPosition())
+        # print('new scare time:', newScaredTimes)
+        # print('new pos:', successorGameState)
+
+
+        # print(currentGameState.getPacmanPosition(), '->', successorGameState.getPacmanPosition())
+        # print(currentGameState.getPacmanState(), '->', successorGameState.getPacmanState())
+
+        food_score = 0
+        ghost_score = 0
+        better_pos = 0
+
+        if newPos in currentGameState.getFood().asList():
+            food_score += 5 * (1 + 4 * ((0.9) ** min(30, len(currentGameState.getFood().asList()))))
+
+        for ghost in newGhostStates:
+            if manhattanDistance(newPos, ghost.getPosition()) < 2:
+                ghost_score += -25 * ((0.7) ** manhattanDistance(newPos, ghost.getPosition()))
+
+        if newPos == currentGameState.getPacmanPosition():
+            better_pos += -10
+        elif food_score < 5:
+            min_food_distance = math.inf
+            for food in newFood.asList():
+                if manhattanDistance(newPos, food) < min_food_distance:
+                    min_food_distance = manhattanDistance(newPos, food)
+            better_pos += ((0.99) ** min_food_distance) * 5
+
+        return food_score + ghost_score + better_pos*(random.randint(7,10)/10)
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -111,6 +143,9 @@ class MinimaxAgent(MultiAgentSearchAgent):
     Your minimax agent (question 2)
     """
 
+    BEST_SCORE = "BEST_SCORE"
+    BEST_MOVE = "BEST_MOVE"
+
     def getAction(self, gameState):
         """
         Returns the minimax action from the current gameState using self.depth
@@ -135,7 +170,80 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # print(gameState.getNumAgents())
+        self.agents_count = gameState.getNumAgents() - 1 
+        # print( gameState.getLegalActions(agentIndex))
+        # return Directions.STOP
+        return self.maxChoice(1, gameState, 0)[MinimaxAgent.BEST_MOVE]
+
+    def minChoice(self, depth, gamestate, agent_id):
+        # Bascause
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+        if agent_id < self.agents_count:
+            actions = gamestate.getLegalActions(agent_id)
+            scores = [self.minChoice(depth, gamestate.generateSuccessor(agent_id, action), agent_id + 1) for action in actions]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = min(scores)
+            bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+            chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+            }
+
+        else:
+            actions = gamestate.getLegalActions(agent_id)
+            depth += 1
+            scores = [self.maxChoice(depth, gamestate.generateSuccessor(agent_id, action), 0) for action in actions]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = min(scores)
+            bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+            chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+            }
+            
+
+    def maxChoice(self, depth, gamestate, agent_id):
+        # Basecase
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+        # print(gamestate.getLegalActions(0))
+        # print(gamestate.getLegalActions(1))
+        # gamestate = gamestate.generateSuccessor(agent_id, gamestate.getLegalActions(agent_id)[1])
+        # print(gamestate.getLegalActions(0))
+        # print(gamestate.getLegalActions(1))
+
+        actions = gamestate.getLegalActions(agent_id)
+        scores = [self.minChoice(depth, gamestate.generateSuccessor(agent_id, action), 1) for action in actions]
+        scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+        bestScore = max(scores)
+        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+        return {
+            MinimaxAgent.BEST_SCORE: bestScore,
+            MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+        }
+
+    def is_game_finished(self, gamestate, d):
+        return d > self.depth or gamestate.isLose() or gamestate.isWin()
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -147,7 +255,106 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # print(gameState.getNumAgents())
+        self.agents_count = gameState.getNumAgents() - 1 
+        # print( gameState.getLegalActions(agentIndex))
+        # return Directions.STOP
+
+        return self.maxChoice(1, gameState, 0, -1 * math.inf, math.inf)[MinimaxAgent.BEST_MOVE]
+
+    def minChoice(self, depth, gamestate, agent_id, a, b):
+        # Bascause
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+        if agent_id < self.agents_count:
+            actions = gamestate.getLegalActions(agent_id)
+            for act in actions:
+                new_state =gamestate.generateSuccessor(agent_id, act)
+                new_option = self.minChoice(depth, new_state, 1, a, b)
+                scores += [new_option]
+                if new_option[MinimaxAgent.BEST_SCORE] < a:
+                    return {
+                        MinimaxAgent.BEST_SCORE: new_option[MinimaxAgent.BEST_SCORE],
+                        MinimaxAgent.BEST_MOVE:  new_option[MinimaxAgent.BEST_MOVE]
+                    }
+                if new_option[MinimaxAgent.BEST_SCORE] <= b:
+                    b = new_option[MinimaxAgent.BEST_SCORE]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = min(scores)
+            bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+            chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+            }
+
+        else:
+            actions = gamestate.getLegalActions(agent_id)
+            depth += 1
+            for act in actions:
+                new_state =gamestate.generateSuccessor(agent_id, act)
+                new_option = self.maxChoice(depth, new_state, 1, a, b)
+                scores += [new_option]
+                if new_option[MinimaxAgent.BEST_SCORE] < a:
+                    return {
+                        MinimaxAgent.BEST_SCORE: new_option[MinimaxAgent.BEST_SCORE],
+                        MinimaxAgent.BEST_MOVE:  new_option[MinimaxAgent.BEST_MOVE]
+                    }
+                if new_option[MinimaxAgent.BEST_SCORE] <= b:
+                    b = new_option[MinimaxAgent.BEST_SCORE]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = min(scores)
+            bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+            chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+            }
+            
+
+    def maxChoice(self, depth, gamestate, agent_id, a, b):
+        # Basecase
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+
+        actions = gamestate.getLegalActions(agent_id)
+        for act in actions:
+            new_state =gamestate.generateSuccessor(agent_id, act)
+            new_option = self.minChoice(depth, new_state, 1, a, b)
+            scores += [new_option]
+            if new_option[MinimaxAgent.BEST_SCORE] > b:
+                return {
+                    MinimaxAgent.BEST_SCORE: new_option[MinimaxAgent.BEST_SCORE],
+                    MinimaxAgent.BEST_MOVE:  new_option[MinimaxAgent.BEST_MOVE]
+                }
+            if new_option[MinimaxAgent.BEST_SCORE] >= a:
+                a = new_option[MinimaxAgent.BEST_SCORE]
+        scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+        bestScore = max(scores)
+        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+        return {
+            MinimaxAgent.BEST_SCORE: bestScore,
+            MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+        }
+
+    def is_game_finished(self, gamestate, d):
+        return d > self.depth or gamestate.isLose() or gamestate.isWin()
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -162,7 +369,71 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # print(gameState.getNumAgents())
+        self.agents_count = gameState.getNumAgents() - 1 
+        # print( gameState.getLegalActions(agentIndex))
+        # return Directions.STOP
+        return self.maxChoice(1, gameState, 0)[MinimaxAgent.BEST_MOVE]
+
+    def avgChoice(self, depth, gamestate, agent_id):
+        # Bascause
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+        if agent_id < self.agents_count:
+            actions = gamestate.getLegalActions(agent_id)
+            scores = [self.avgChoice(depth, gamestate.generateSuccessor(agent_id, action), agent_id + 1) for action in actions]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = sum(scores)/len(scores)
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: None
+            }
+
+        else:
+            actions = gamestate.getLegalActions(agent_id)
+            depth += 1
+            scores = [self.maxChoice(depth, gamestate.generateSuccessor(agent_id, action), 0) for action in actions]
+            scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+            bestScore = sum(scores)/len(scores)
+
+            return {
+                MinimaxAgent.BEST_SCORE: bestScore,
+                MinimaxAgent.BEST_MOVE: None
+            }
+            
+
+    def maxChoice(self, depth, gamestate, agent_id):
+        # Basecase
+        if self.is_game_finished(gamestate, depth):
+            return {
+                MinimaxAgent.BEST_SCORE: self.evaluationFunction(gamestate),
+                MinimaxAgent.BEST_MOVE: Directions.STOP
+            }
+        
+        scores = []
+
+        actions = gamestate.getLegalActions(agent_id)
+        scores = [self.avgChoice(depth, gamestate.generateSuccessor(agent_id, action), 1) for action in actions]
+        scores = list(map(lambda x: x[MinimaxAgent.BEST_SCORE], scores))
+        bestScore = max(scores)
+        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+        return {
+            MinimaxAgent.BEST_SCORE: bestScore,
+            MinimaxAgent.BEST_MOVE: actions[chosenIndex]
+        }
+
+    def is_game_finished(self, gamestate, d):
+        return d > self.depth or gamestate.isLose() or gamestate.isWin()
+
 
 def betterEvaluationFunction(currentGameState):
     """
