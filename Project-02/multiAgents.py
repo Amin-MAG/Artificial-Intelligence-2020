@@ -276,7 +276,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             actions = gamestate.getLegalActions(agent_id)
             for act in actions:
                 new_state =gamestate.generateSuccessor(agent_id, act)
-                new_option = self.minChoice(depth, new_state, 1, a, b)
+                new_option = self.minChoice(depth, new_state, agent_id + 1, a, b)
                 scores += [new_option]
                 if new_option[MinimaxAgent.BEST_SCORE] < a:
                     return {
@@ -300,7 +300,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             depth += 1
             for act in actions:
                 new_state =gamestate.generateSuccessor(agent_id, act)
-                new_option = self.maxChoice(depth, new_state, 1, a, b)
+                new_option = self.maxChoice(depth, new_state, 0, a, b)
                 scores += [new_option]
                 if new_option[MinimaxAgent.BEST_SCORE] < a:
                     return {
@@ -443,7 +443,89 @@ def betterEvaluationFunction(currentGameState):
     DESCRIPTION: <write something here so we know what you did>
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    newPos = currentGameState.getPacmanPosition()
+    newFood = currentGameState.getFood()
+    newGhostStates = currentGameState.getGhostStates()
+    newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+
+    # print('new pos:', newPos)
+    # print('new food:', newFood)
+    # print('new ghost state:', newGhostStates)
+    # for ghost in newGhostStates:
+    #     print(ghost.getPosition())
+    # print('new scare time:', newScaredTimes)
+    # print('new pos:', currentGameState)
+
+
+
+    food_score = 0
+    ghost_score = 0
+    better_pos = 0
+
+    if newPos in currentGameState.getFood().asList():
+        food_score += 5 * (3 * ((0.9) ** min(50, len(currentGameState.getFood().asList()))))
+        neighbor = [(newPos[0] + 1, newPos[1]), (newPos[0] - 1, newPos[1]), (newPos[0], newPos[1] + 1), (newPos[0], newPos[1] - 1)]
+        neighbor = neighbor + [(newPos[0] + 2, newPos[1]), (newPos[0] - 2, newPos[1]), (newPos[0], newPos[1] + 2), (newPos[0], newPos[1] - 2)]
+        neighbor = neighbor + [(newPos[0] + 1, newPos[1] + 1), (newPos[0] - 1, newPos[1] - 1), (newPos[0] -1, newPos[1] + 1), (newPos[0] + 1, newPos[1] - 1)]
+        
+        for node in neighbor:
+            if node in currentGameState.getFood().asList():
+                food_score += 5 * (3 * ((0.9) ** min(50, len(currentGameState.getFood().asList()))))
+            else:
+                food_score += -4 * (3 * ((0.9) ** min(50, len(currentGameState.getFood().asList()))))
+
+    for ghost in newGhostStates:
+        if manhattanDistance(newPos, ghost.getPosition()) < 3:
+            ghost_score += -25 * ((0.9) ** manhattanDistance(newPos, ghost.getPosition()))
+
+    if newPos == currentGameState.getPacmanPosition():
+        better_pos += -5
+
+    # print("--------------------------------")
+    # print(breadthFirstSearch(newPos, 20, currentGameState))
+    # print("--------------------------------")
+
+    return breadthFirstSearch(newPos, 4, currentGameState) + ghost_score + better_pos*(random.randint(7,10)/10)
+    
+ALPHA = 0.5
+
+def breadthFirstSearch(pos, depth, gameState):
+    """Search the shallowest nodes in the search tree first."""
+    "*** YOUR CODE HERE ***"
+    score = 0
+    # BFS Queue
+    queue = []
+    # Visited states
+    visited = []
+    # Main
+    queue.append((pos, 0, 1 if gameState.getFood()[pos[0]][pos[1]] else 0))
+    while len(queue) != 0:
+        state = queue[0]
+        del(queue[0])
+        d = state[1] + 1
+        score += state[2]*(2*((ALPHA)**depth))
+        if state[1] == 0:
+            visited.append(state[0])
+        # Check if it is a go
+        if d > depth:
+            return score
+        for child in getBFSSuccessors(state[0], d, gameState):
+            if child[0] not in visited:
+                queue.append(child)
+                visited.append(child[0])                
+    return score
+
+def getBFSSuccessors(pos, depth, gameState):
+    successors = []
+    food, walls = gameState.getFood(), gameState.getWalls()
+    for action in [(0, 1), (-1, 0), (1, 0), (0, -1)]:
+        x,y = pos
+        dx, dy = action
+        nextx, nexty = int(x + dx), int(y + dy)
+        if not walls[nextx][nexty]:
+            nextState = (nextx, nexty)
+            successors.append( ( nextState, depth, 1 if food[nextx][nexty] else 0) )
+    return successors
 
 # Abbreviation
 better = betterEvaluationFunction
