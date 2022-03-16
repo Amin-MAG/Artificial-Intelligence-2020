@@ -1,0 +1,12 @@
+---
+:id: 49471254
+:submitters:
+- :name: محمد امین قسوری
+  :email: m.amin.ghasvari@gmail.com
+:created_at: !ruby/object:ActiveSupport::TimeWithZone
+  utc: 2020-10-15 15:46:49.371030000 Z
+  zone: !ruby/object:ActiveSupport::TimeZone
+    name: America/Los_Angeles
+  time: 2020-10-15 08:46:49.371030000 Z
+:status: processed
+:score: 25.0
