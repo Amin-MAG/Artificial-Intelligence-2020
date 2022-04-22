@@ -18,6 +18,7 @@ import busters
 import game
 
 from util import manhattanDistance, raiseNotDefined
+import math
 
 
 class DiscreteDistribution(dict):
@@ -25,6 +26,7 @@ class DiscreteDistribution(dict):
     A DiscreteDistribution models belief distributions and weight distributions
     over a finite set of discrete keys.
     """
+
     def __getitem__(self, key):
         self.setdefault(key, 0)
         return dict.__getitem__(self, key)
@@ -75,7 +77,12 @@ class DiscreteDistribution(dict):
         {}
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        sum_of_dist = sum(self.values())
+        if sum_of_dist == 0:
+            return
+
+        for key in self.keys():
+            self[key] = self[key] / sum_of_dist
 
     def sample(self):
         """
@@ -99,13 +106,24 @@ class DiscreteDistribution(dict):
         0.0
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        tape = []
+
+        for key in self.keys():
+            tape.extend([key] * int(self[key] * 1000))
+
+        r_index = math.floor(random.random() * len(tape))
+
+        return tape[r_index]
+
+    def clear(self):
+        self = dict()
 
 
 class InferenceModule:
     """
     An inference module tracks a belief distribution over a ghost's location.
     """
+
     ############################################
     # Useful methods for all inference modules #
     ############################################
@@ -135,7 +153,7 @@ class InferenceModule:
             dist[jail] = 1.0
             return dist
         pacmanSuccessorStates = game.Actions.getLegalNeighbors(pacmanPosition, \
-                gameState.getWalls())  # Positions Pacman can move to
+                                                               gameState.getWalls())  # Positions Pacman can move to
         if ghostPosition in pacmanSuccessorStates:  # Ghost could get caught
             mult = 1.0 / float(len(pacmanSuccessorStates))
             dist[jail] = mult
@@ -169,7 +187,14 @@ class InferenceModule:
         Return the probability P(noisyDistance | pacmanPosition, ghostPosition).
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        if noisyDistance is None and ghostPosition == jailPosition:
+            return 1
+        elif noisyDistance is None:
+            return 0
+        elif ghostPosition == jailPosition:
+            return 0
+
+        return busters.getObservationProbability(noisyDistance, manhattanDistance(ghostPosition, pacmanPosition))
 
     def setGhostPosition(self, gameState, ghostPosition, index):
         """
@@ -251,6 +276,7 @@ class ExactInference(InferenceModule):
     The exact dynamic inference module should use forward algorithm updates to
     compute the exact belief function at each time step.
     """
+
     def initializeUniformly(self, gameState):
         """
         Begin with a uniform distribution over legal ghost positions (i.e., not
@@ -277,9 +303,26 @@ class ExactInference(InferenceModule):
         position is known.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+
+        pacman_position = gameState.getPacmanPosition()
+        places = self.allPositions
+
+        for place in places:
+            possibility = self.getObservationProb(observation, pacman_position, place, self.getJailPosition())
+            # self.beliefs[place] += possibility
+            self.beliefs[place] *= possibility
 
         self.beliefs.normalize()
+
+        # print("----------------------------------------------------------")
+        # print(observation)
+        # print(gameState.getPacmanPosition())
+        # print(self.getJailPosition())
+        # print(self.getObservationProb(observation, gameState.getPacmanPosition(), (1, 2), self.getJailPosition()))
+        # print(self.getBeliefDistribution())
+        # print(self.allPositions)
+        #
+        # self.beliefs.normalize()
 
     def elapseTime(self, gameState):
         """
@@ -291,7 +334,25 @@ class ExactInference(InferenceModule):
         current position is known.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        # print(self.beliefs)
+        # exit(0)
+        new = self.beliefs.copy()
+        places = self.allPositions
+        movement_dist_table = {}
+        # Calculate the distribution for next movement
+        for place in places:
+            movement_dist_table[place] = self.getPositionDistribution(gameState, place)
+        # Update the belief with this knowledge
+        for place in places:
+            possibility = 0
+            # For each place we have Sigma [for all ways that can go to this place]
+            # Sigma [...] (belief for previous * possibility of that way)
+            for old_position in self.beliefs:
+                if place in movement_dist_table[old_position].keys():
+                    possibility += movement_dist_table[old_position][place] * self.beliefs[old_position]
+            new[place] = possibility
+        # raiseNotDefined()
+        self.beliefs = new
 
     def getBeliefDistribution(self):
         return self.beliefs
@@ -301,6 +362,7 @@ class ParticleFilter(InferenceModule):
     """
     A particle filter for approximately tracking a single ghost.
     """
+
     def __init__(self, ghostAgent, numParticles=300):
         InferenceModule.__init__(self, ghostAgent)
         self.setNumParticles(numParticles)
@@ -318,7 +380,14 @@ class ParticleFilter(InferenceModule):
         """
         self.particles = []
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        i = 0
+        number_of_particles = self.numParticles
+        legal = self.legalPositions
+        while i < number_of_particles:
+            for pos in legal:
+                if i < number_of_particles:
+                    self.particles.append(pos)
+                    i += 1
 
     def observeUpdate(self, observation, gameState):
         """
@@ -333,15 +402,29 @@ class ParticleFilter(InferenceModule):
         the DiscreteDistribution may be useful.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        ws = DiscreteDistribution()
+        for position in self.particles:
+            ws[position] += self.getObservationProb(observation, gameState.getPacmanPosition(), position,
+                                                    self.getJailPosition())
+
+        # sum of values equals zero
+        if ws.total() != 0:
+            ws.normalize()
+            tmp = []
+            for i in range(self.numParticles):
+                tmp.append(ws.sample())
+            self.particles = tmp
+        else:
+            self.initializeUniformly(gameState)
 
     def elapseTime(self, gameState):
         """
         Sample each particle's next state based on its current state and the
         gameState.
         """
-        "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        for i in range(self.numParticles):
+            dist = self.getPositionDistribution(gameState, self.particles[i])
+            self.particles[i] = dist.sample()
 
     def getBeliefDistribution(self):
         """
@@ -352,7 +435,13 @@ class ParticleFilter(InferenceModule):
         This function should return a normalized distribution.
         """
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+
+        belief_distribution = DiscreteDistribution()
+        for particle in self.particles:
+            belief_distribution[particle] += 1
+        belief_distribution.normalize()
+
+        return belief_distribution
 
 
 class JointParticleFilter(ParticleFilter):
@@ -360,6 +449,7 @@ class JointParticleFilter(ParticleFilter):
     JointParticleFilter tracks a joint distribution over tuples of all ghost
     positions.
     """
+
     def __init__(self, numParticles=600):
         self.setNumParticles(numParticles)
 
@@ -377,10 +467,12 @@ class JointParticleFilter(ParticleFilter):
         Initialize particles to be consistent with a uniform prior. Particles
         should be evenly distributed across positions in order to ensure a
         uniform prior.
-        """
+        """r
         self.particles = []
         "*** YOUR CODE HERE ***"
-        raiseNotDefined()
+        iter_product = itertools.product(self.legalPositions, repeat=self.numGhosts)
+        samples = list(iter_product)
+        self.particles = samples[0: self.numParticles]
 
     def addGhostAgent(self, agent):
         """
@@ -426,8 +518,9 @@ class JointParticleFilter(ParticleFilter):
 
             # now loop through and update each entry in newParticle...
             "*** YOUR CODE HERE ***"
-            raiseNotDefined()
-
+            for i in range(self.numGhosts):
+                newParticle[i] = self.getPositionDistribution(gameState, list(oldParticle), i, self.ghostAgents[i])
+                newParticle[i] = newParticle[i].sample()
             """*** END YOUR CODE HERE ***"""
             newParticles.append(tuple(newParticle))
         self.particles = newParticles
@@ -442,6 +535,7 @@ class MarginalInference(InferenceModule):
     A wrapper around the JointInference module that returns marginal beliefs
     about ghosts.
     """
+
     def initializeUniformly(self, gameState):
         """
         Set the belief state to an initial, prior value.
